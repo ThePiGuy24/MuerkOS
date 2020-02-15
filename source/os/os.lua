@@ -10,6 +10,16 @@ require = function(module)
   return module()
 end
 
+system = function(executable)
+  if not fs.exists(executable) then
+    return false
+  end
+  execfile = fs.open(executable)
+  load(fs.read(execfile, math.huge))()
+  fs.close(execfile)
+  return true
+end
+
 local gpu = component.getPrimary("gpu")
 local w, h = gpu.getResolution()
 
@@ -19,11 +29,14 @@ local w, h = gpu.getResolution()
 --  gpu.set(1, h, tostring(text))
 --end
 
+gpu.fill(1, 1, w, h, " ")
 require("printlib")
+system("/os/motd.lua")
 
-print("Successfully booted in " .. computer.uptime() .. " seconds")
-print("From " .. __OSDISK)
+print("")
 
 while true do
-  computer.pullSignal(1)
+  computer.pullSignal(0.001)
+  gpu.fill(1, h, w, 1, " ")
+  gpu.set(1, h, "Uptime: " .. math.floor(computer.uptime()))
 end

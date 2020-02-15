@@ -1,7 +1,7 @@
 component.getPrimary = function(c) return component.proxy(component.list(c)()) end
 
 __OSNAME = "MuerkOS" 
-__OSVER  = "alph0001"
+__OSVER  = "alph0002"
 __OSDISK = computer.getBootAddress()
 
 local gpu = component.getPrimary("gpu")
