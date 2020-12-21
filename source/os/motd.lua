@@ -8,8 +8,12 @@ local lines = {}
 local textLines = {
   __OSNAME .. " " .. __OSVER,
   "Booted in " .. computer.uptime() .. " seconds",
-  "From " .. string.sub(__OSDISK,1,8) .. " on " .. string.sub(computer.address(),1,8),
+  "" .. math.floor(computer.freeMemory()/1024) .. "k free of " .. math.floor(computer.totalMemory()/1024) .. "k",
 }
+
+local gpu = component.getPrimary("gpu")
+local w, h = gpu.getResolution()
+
 print("")
 for i=1, 3 do
   lines[i] = "  "
@@ -18,4 +22,4 @@ for i=1, 3 do
   end
   print(lines[i] .. "  " .. textLines[i])
 end
-print("")
+print(string.rep("_", w))
