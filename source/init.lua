@@ -1,7 +1,7 @@
 component.getPrimary = function(c) return component.proxy(component.list(c)()) end
 
 __OSNAME = "MuerkOS" 
-__OSVER  = "alph0003"
+__OSVER  = "alph0004"
 if computer.getBootAddress then
   __OSDISK = computer.getBootAddress()
 else
@@ -18,14 +18,15 @@ fs.write(__ERRFILE, "Start of error/info/status log.\n")
 fs.close(__ERRFILE)
 __ERRFILE = fs.open("err.log", "a")
 
-local logmode = 2 -- 0 = none, 1 = errors only, 2 = errors and info, 3 = errors, info and status
+local logmode = 3 -- 0 = none, 1 = errors only, 2 = errors and info, 3 = errors, info and status
 
 --gpu.set(1, 1, "Booting " .. __OSNAME .. " " .. __OSVER .. "...")
 
 local print = function(text) -- basic print
-  gpu.copy(1, 2, w, h-1, 0, -1)
   gpu.fill(1, h, w, 1, " ")
   gpu.set(1, h, tostring(text))
+  gpu.copy(1, 2, w, h-1, 0, -1)
+  gpu.fill(1, h, w, 1, " ")
 end
 
 oc_error = error

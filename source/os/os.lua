@@ -1,4 +1,5 @@
 local fs = component.proxy(__OSDISK)
+computer.pushSignal("boot_start", computer.uptime())
 --oc_error = error
 
 --while computer.pullSignal() ~= "key_down" do end
@@ -37,42 +38,100 @@ system = function(executable)
   return succ, err
 end
 
+isin = function(ite, tab)
+  --info("isin")
+  if type(tab) ~= "table" then
+    --print("isnill")
+    return nil
+  end
+  for _,itte in ipairs(tab) do
+    --print(itte, ite)
+    if itte == ite then
+      return true
+    end
+  end
+  --info("isnie")
+  return false
+end
+
 local gpu = component.getPrimary("gpu")
-local w, h = gpu.getResolution()
+w, h = gpu.getResolution()
 
---local print = function(text)
---  gpu.copy(1, 2, w, h-1, 0, -1)
---  gpu.fill(1, h, w, 1, " ")
---  gpu.set(1, h, tostring(text))
---end
+local eventlimit = 256
+local eventstack = {}
+local eventid = 0
 
-gpu.fill(1, 1, w, h, " ")
+epull = function(etype, clearevent)
+  --info("epull")
+  local re = nil
+  if clearevent == nil then
+    clearevent = true
+  end
+  if #eventstack > 0 then
+    if etype == nil then
+      re = eventstack[1]
+      if clearevent then
+        for te = 1, #eventstack - 1 do
+          eventstack[te] = eventstack[te + 1]
+        end
+        eventstack[#eventstack] = nil
+      end
+    else
+      if type(etype) ~= "table" then
+        etype = {etype}
+      end
+      for te = 1, #eventstack do
+        if isin(eventstack[te][3], etype) then
+          re = eventstack[te]
+          if clearevent then
+            for te2 = te, #eventstack - 1 do
+              eventstack[te2] = eventstack[te2 + 1]
+            end
+            eventstack[#eventstack] = nil
+          end
+          break
+        end
+      end
+    end
+  end
+  return re
+end
+
+epush = function(ev)
+  --info("epush")
+  eventstack[#eventstack+1] = {eventid, computer.uptime(), table.unpack(ev)}
+  if #eventstack > eventlimit then
+    for te = 0, eventlimit - 1 do
+      eventstack[eventlimit-te] = eventstack[#eventstack-te]
+    end
+  end
+  eventid = eventid + 1
+end
+
+--gpu.fill(1, 1, w, h, " ")
 require("printlib")
 fslib = require("fslib")
 
---status("Start of error/status log")
-
-system("/os/motd.lua")
-
-print("")
+procs = {}
+cpid = 0
+sproc = function(func, procname)
+  cpid = cpid + 1
+  procs[cpid] = {coroutine.create(func), computer.uptime(), 0, procname}
+  return cpid
+end
 
 info("Loading Shell")
 
---local shellfile = fs.open("/os/shell.lua")
---local shell = load(fslib.readall(shellfile, math.huge))
---fs.close(shellfile)
 local shell = load(fslib.readfile(fs, "/os/shell.lua"),"/os/shell.lua")
-ttys = {}
 --error("creating coro")
 
-local coros, coror = false, nil
-
-ttys[1] = {coroutine.create(shell), computer.uptime(), 1} -- {thread object, time last yielded, requested delay}
-coros, coror = coroutine.resume(ttys[1][1])
-if coros then
-  ttys[1][3] = tonumber(coror or 0)
-  ttys[1][2] = computer.uptime()
-end
+sproc(shell, "shell")
+--procs[1] = {coroutine.create(shell), computer.uptime(), 1, "shell"} -- {proc coro, time last yielded, requested delay, name}
+--coros, coror = coroutine.resume(procs[1][1])
+--if coros then
+--  procs[1][3] = tonumber(coror or 0)
+--  procs[1][2] = computer.uptime()
+--end
 
 local fut = 0
 local cut = 0
@@ -80,22 +139,33 @@ local cut = 0
 info("Finished booting in "..computer.uptime().." seconds")
 info(math.floor(computer.freeMemory()) .. "Bytes free of " .. math.floor(computer.totalMemory()) .. "Bytes")
 
-print("This look like it does nothing, but it actually is doing something,\njust not enough to call it a proper OS yet.")
+--print("This look like it does nothing, but it actually is doing something,\njust not enough to call it a proper OS yet.")
 
+system("/os/motd.lua")
+--print("")
+
+computer.pushSignal("boot_finish", computer.uptime())
 while true do
-  computer.pullSignal(0)
-  for ttyi, tty in ipairs(ttys) do
-    if (tty[2] or computer.uptime()) + (tty[3] or 0) <= computer.uptime() then
-      coros, coror = false, nil
-      ttys[ttyi][2] = computer.uptime()
-      coros, coror = coroutine.resume(tty[1])
+  --w, h = gpu.getResolution()
+  local e = {computer.pullSignal(0)}
+  if #e > 0 then
+    epush(e)
+  end
+  for procpid, proc in pairs(procs) do
+    if (proc[2] or computer.uptime()) + (proc[3] or 0) <= computer.uptime() then
+      local succ, coros, coror = false, false, nil
+      procs[procpid][2] = computer.uptime()
+      succ, coros, coror = pcall(coroutine.resume, proc[1])
+      if not succ then
+        error(coros)
+      end
       if coros then
-        ttys[ttyi][3] = tonumber(coror or 0)
-        --ttys[ttyi][2] = computer.uptime()
+        procs[procpid][3] = tonumber(coror or 0)
+        --procs[procpid][2] = computer.uptime()
       end
     end
-    --print(ttys[ttyi][1],ttys[ttyi][2],ttys[ttyi][3])
-    --print(type(ttys[ttyi][1]),type(ttys[ttyi][2]),type(ttys[ttyi][3]))
+    --print(procs[procpid][1],procs[procpid][2],procs[procpid][3])
+    --print(type(procs[procpid][1]),type(procs[procpid][2]),type(procs[procpid][3]))
   end
   --gpu.fill(1, h, w, 1, " ")
   --gpu.set(1, h, "Uptime: " .. math.floor(computer.uptime()))
